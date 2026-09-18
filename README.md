@@ -29,7 +29,7 @@
 ### 📦 Установка
 
 1. Установите расширение **[Tampermonkey](https://www.tampermonkey.net/)** для вашего браузера.
-2. Откройте [ссылку на raw-файл скрипта](https://github.com/HiddenNekoStudio/AutoClicker-mu/blob/main/IdleRPGMU%20Auto%20Clicker%20(v7.0%20RU-EU)-7.0.user.js).
+2. Откройте [ссылку на raw-файл скрипта](https://github.com/HiddenNekoStudio/AutoClicker-mu/raw/refs/heads/main/IdleRPGMU%20Auto%20Clicker%20(v7.0%20RU-EU)-7.0.user.js).
 3. Tampermonkey предложит установку — подтвердите.
 4. Откройте `https://idlerpgmu.com/game` — скрипт запустится автоматически.
 
@@ -101,7 +101,7 @@ A Tampermonkey userscript that automates routine actions in the browser-based id
 ### 📦 Installation
 
 1. Install the **[Tampermonkey](https://www.tampermonkey.net/)** extension for your browser.
-2. Open the [raw script link](https://github.com/HiddenNekoStudio/AutoClicker-mu/blob/main/IdleRPGMU%20Auto%20Clicker%20(v7.0%20RU-EU)-7.0.user.js).
+2. Open the [raw script link](https://github.com/HiddenNekoStudio/AutoClicker-mu/raw/refs/heads/main/IdleRPGMU%20Auto%20Clicker%20(v7.0%20RU-EU)-7.0.user.js).
 3. Tampermonkey will ask to install — confirm.
 4. Open `https://idlerpgmu.com/game` — the script starts automatically.
 
