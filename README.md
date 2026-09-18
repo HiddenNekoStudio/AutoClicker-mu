@@ -1,5 +1,8 @@
 # 🤖 IdleRPGMU Auto Clicker
 
+<img width="240" height="335" alt="Screenshot 2026-09-18 at 2 54 21 PM" src="https://github.com/user-attachments/assets/3dc96afb-7c30-44aa-98ad-45c632649a73" />
+
+
 > Userscript for **MU Idle RPG** — automation of Reset, Map switching, Event registration & rewards, Modal closing, and Mining cycles.
 
 [🇷🇺 Русский](#-русский) · [🇬🇧 English](#-english)
