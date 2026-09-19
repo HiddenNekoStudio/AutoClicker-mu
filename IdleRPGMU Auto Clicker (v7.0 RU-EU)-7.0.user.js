@@ -1,13 +1,14 @@
 // ==UserScript==
-// @name         IdleRPGMU Auto Clicker (v7.0 RU/EU)
-// @name:ru      IdleRPGMU Автокликер (v7.0 RU/EU)
+// @name         IdleRPGMU Auto Clicker (v7.1 RU/EU)
+// @name:ru      IdleRPGMU Автокликер (v7.1 RU/EU)
 // @namespace    http://tampermonkey.net/
-// @version      7.0
+// @version      7.1
 // @description  Reset + Map + Auto Event + Modal close + Mining (6h) with RU/EU localization
 // @description:ru  Сброс + Карта + Авто-ивенты + Закрытие окон + Mining (6ч) с выбором языка
 // @author       You
 // @match        https://idlerpgmu.com/game*
 // @grant        none
+// @run-at       document-idle
 // ==/UserScript==
 
 (function() {
@@ -31,7 +32,6 @@
             status: 'Статус',
             on: 'ВКЛ',
             off: 'ВЫКЛ',
-            // Статусы
             waiting: 'ОЖИДАНИЕ',
             reset: 'СБРОС',
             resetCd: 'СБРОС (КД)',
@@ -39,7 +39,6 @@
             noTabs: 'нет вкладок',
             noButton: 'нет кнопки',
             miningOff: 'ВЫКЛ',
-            // Ивенты
             reg: 'РЕГ',
             claim: 'ЗАБРАТЬ',
             continueEvt: 'ПРОДОЛЖИТЬ',
@@ -48,7 +47,6 @@
             later: 'позже',
             waitBtn: 'ждём кнопку',
             expApplied: 'EXP начислен',
-            // Mining
             toMining: '→ Mining',
             onMining: 'на Mining',
             collect: 'СБОР',
@@ -59,13 +57,7 @@
             unavailable: 'недоступен',
             alreadyMining: 'уже копает',
             syncAgo: 'синк {n}м назад',
-            // Тултипы
-            langSwitch: 'Переключить язык',
-            tipAuto: 'Главный выключатель — стоп всех действий',
-            tipMap: 'Карта, на которую будет переходить персонаж',
-            tipEvents: 'Авто-регистрация и авто-сбор награды ивентов',
-            tipModal: 'Автоматически закрывать всплывающие окна',
-            tipMining: 'Авто-цикл Mining раз в 6 часов'
+            langSwitch: 'Переключить язык'
         },
         en: {
             title: '🤖 AutoClicker',
@@ -81,7 +73,6 @@
             status: 'Status',
             on: 'ON',
             off: 'OFF',
-            // Statuses
             waiting: 'WAITING',
             reset: 'RESET',
             resetCd: 'RESET (CD)',
@@ -89,7 +80,6 @@
             noTabs: 'no tabs',
             noButton: 'no button',
             miningOff: 'OFF',
-            // Events
             reg: 'REG',
             claim: 'CLAIM',
             continueEvt: 'CONTINUE',
@@ -98,7 +88,6 @@
             later: 'later',
             waitBtn: 'waiting button',
             expApplied: 'EXP applied',
-            // Mining
             toMining: '→ Mining',
             onMining: 'on Mining',
             collect: 'COLLECT',
@@ -109,13 +98,7 @@
             unavailable: 'unavailable',
             alreadyMining: 'already mining',
             syncAgo: 'sync {n}m ago',
-            // Tooltips
-            langSwitch: 'Switch language',
-            tipAuto: 'Master switch — stops all actions',
-            tipMap: 'Map where the character will travel',
-            tipEvents: 'Auto-register and auto-claim event rewards',
-            tipModal: 'Automatically close popup modals',
-            tipMining: 'Auto Mining cycle every 6 hours'
+            langSwitch: 'Switch language'
         }
     };
 
@@ -196,25 +179,29 @@
     // 4. ПАНЕЛЬ / PANEL
     // ==========================================
     function createUI() {
+        // Удаляем старую, если есть
+        const existing = document.getElementById('idle-auto-panel');
+        if (existing) existing.remove();
+
         const panel = document.createElement('div');
         panel.id = 'idle-auto-panel';
         panel.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:6px;">
-                <strong style="font-size:14px;" data-i18n="title">${t('title')}</strong>
+                <strong style="font-size:14px;">${t('title')}</strong>
                 <div style="display:flex;gap:4px;">
                     <button id="lang-toggle-btn" title="${t('langSwitch')}" style="padding:3px 8px;cursor:pointer;border:none;border-radius:4px;font-weight:bold;font-size:11px;background:#555;color:#fff;">${currentLang.toUpperCase()}</button>
                     <button id="auto-toggle-btn" style="padding:4px 10px;cursor:pointer;border:none;border-radius:4px;font-weight:bold;">ON</button>
                 </div>
             </div>
             <div style="font-size:12px;margin-bottom:4px;">
-                <span data-i18n="level">${t('level')}</span>: <span id="auto-level" style="color:#4CAF50;font-weight:bold;">...</span>
+                ${t('level')}: <span id="auto-level" style="color:#4CAF50;font-weight:bold;">...</span>
             </div>
             <div style="font-size:12px;margin-bottom:8px;">
-                <span data-i18n="stage">${t('stage')}</span>: <span id="auto-stage" style="color:#FFC107;font-weight:bold;">...</span>
+                ${t('stage')}: <span id="auto-stage" style="color:#FFC107;font-weight:bold;">...</span>
             </div>
 
             <div style="border-top:1px solid #444;padding-top:8px;">
-                <div style="font-size:12px;margin-bottom:4px;"><strong data-i18n="map">${t('map')}</strong></div>
+                <div style="font-size:12px;margin-bottom:4px;"><strong>${t('map')}</strong></div>
                 <select id="map-select" style="width:100%;padding:4px;border-radius:4px;background:#222;color:#fff;border:1px solid #555;font-size:12px;">
                     <option value="">${t('loading')}</option>
                 </select>
@@ -222,28 +209,28 @@
 
             <div style="border-top:1px solid #444;padding-top:8px;margin-top:8px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <strong style="font-size:12px;" data-i18n="autoEvents">${t('autoEvents')}</strong>
+                    <strong style="font-size:12px;">${t('autoEvents')}</strong>
                     <button id="event-toggle-btn" style="padding:3px 8px;cursor:pointer;border:none;border-radius:4px;font-weight:bold;font-size:11px;">ON</button>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <strong style="font-size:12px;" data-i18n="modalClose">${t('modalClose')}</strong>
+                    <strong style="font-size:12px;">${t('modalClose')}</strong>
                     <button id="modal-toggle-btn" style="padding:3px 8px;cursor:pointer;border:none;border-radius:4px;font-weight:bold;font-size:11px;">ON</button>
                 </div>
             </div>
 
             <div style="border-top:1px solid #444;padding-top:8px;margin-top:8px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                    <strong style="font-size:12px;" data-i18n="mining">${t('mining')}</strong>
+                    <strong style="font-size:12px;">${t('mining')}</strong>
                     <button id="mining-toggle-btn" style="padding:3px 8px;cursor:pointer;border:none;border-radius:4px;font-weight:bold;font-size:11px;">ON</button>
                 </div>
                 <div style="font-size:11px;margin-bottom:3px;">
-                    <span data-i18n="resource">${t('resource')}</span>: <span id="mining-resource" style="color:#03A9F4;font-weight:bold;">...</span>
+                    ${t('resource')}: <span id="mining-resource" style="color:#03A9F4;font-weight:bold;">...</span>
                 </div>
                 <div style="font-size:11px;margin-bottom:3px;">
-                    <span data-i18n="left">${t('left')}</span>: <span id="mining-left" style="color:#FF9800;font-weight:bold;">...</span>
+                    ${t('left')}: <span id="mining-left" style="color:#FF9800;font-weight:bold;">...</span>
                 </div>
                 <div style="font-size:11px;">
-                    <span data-i18n="status">${t('status')}</span>: <span id="mining-status" style="color:#9E9E9E;font-weight:bold;">...</span>
+                    ${t('status')}: <span id="mining-status" style="color:#9E9E9E;font-weight:bold;">...</span>
                 </div>
             </div>
         `;
@@ -251,11 +238,16 @@
             position: 'fixed', bottom: '10px', left: '10px',
             background: 'rgba(30,30,30,0.92)', color: '#fff',
             padding: '10px 15px', borderRadius: '8px',
-            border: '1px solid #444', zIndex: '99999',
+            border: '1px solid #444',
+            zIndex: '2147483646',
+            pointerEvents: 'auto',
             fontFamily: 'Arial,sans-serif',
             boxShadow: '0 4px 6px rgba(0,0,0,0.3)', minWidth: '235px'
         });
-        document.body.appendChild(panel);
+
+        // Куда вставлять — в body или в documentElement
+        const host = document.body || document.documentElement;
+        host.appendChild(panel);
 
         document.getElementById('auto-toggle-btn').addEventListener('click', () => {
             isEnabled = !isEnabled;
@@ -284,17 +276,20 @@
         document.getElementById('lang-toggle-btn').addEventListener('click', () => {
             currentLang = currentLang === 'ru' ? 'en' : 'ru';
             localStorage.setItem('idleRPGMU_lang', currentLang);
-            rebuildUI();
+            createUI();
+            refreshMapSelect();
         });
 
         updateToggleUI();
     }
 
-    // Пересобираем панель при смене языка, сохраняя состояние
-    function rebuildUI() {
-        const oldPanel = document.getElementById('idle-auto-panel');
-        if (oldPanel) oldPanel.remove();
-        createUI();
+    // Проверяем, что панель существует. Если нет — создаём заново.
+    function ensurePanel() {
+        if (!document.getElementById('idle-auto-panel')) {
+            console.log('🔧 Panel not found, recreating...');
+            createUI();
+            refreshMapSelect();
+        }
     }
 
     function updateToggleUI() {
@@ -718,7 +713,7 @@
             if (miningMode === 'collect') {
                 if (active) {
                     primaryBtn.click();
-                    updateMiningUI(res.label, t('collect'), '0' + (currentLang === 'ru' ? 'м' : 'm'));
+                    updateMiningUI(res.label, t('collect'), currentLang === 'ru' ? '0м' : '0m');
                     miningCycleStep = 3;
                 } else {
                     miningCycleStep = 3;
@@ -797,6 +792,9 @@
     let mapRefreshCounter = 0;
 
     function mainLoop() {
+        // Восстанавливаем панель, если её нет
+        ensurePanel();
+
         if (!isEnabled) {
             updateStatusUI(getLevel(), t('off'));
             updateMiningUI('—', t('miningOff'), '—');
@@ -858,21 +856,51 @@
     }
 
     // ==========================================
-    // 11. ЗАПУСК / START
+    // 11. ЗАПУСК / START (Firefox-friendly)
     // ==========================================
-    window.addEventListener('load', () => {
-        createUI();
+
+    function waitForBody(callback) {
+        if (document.body) {
+            callback();
+            return;
+        }
+        const observer = new MutationObserver(() => {
+            if (document.body) {
+                observer.disconnect();
+                callback();
+            }
+        });
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+        const iv = setInterval(() => {
+            if (document.body) {
+                clearInterval(iv);
+                observer.disconnect();
+                callback();
+            }
+        }, 100);
+    }
+
+    function startScript() {
+        ensurePanel();
+        refreshMapSelect();
         setTimeout(refreshMapSelect, 500);
         setTimeout(refreshMapSelect, 2000);
+        setTimeout(refreshMapSelect, 5000);
+
         setInterval(mainLoop, CLICK_INTERVAL);
 
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) mainLoop();
+            if (!document.hidden) {
+                ensurePanel();
+                mainLoop();
+            }
         });
 
-        console.log('🚀 AutoClicker v7.0 started. Lang:', currentLang);
+        console.log('🚀 AutoClicker v7.1 started. Lang:', currentLang);
         console.log('   Auto:', isEnabled, '| Mining:', isMiningEnabled,
                     '| Modal:', isModalCloseEnabled, '| Event:', isEventAutoEnabled);
-    });
+    }
+
+    waitForBody(startScript);
 
 })();
