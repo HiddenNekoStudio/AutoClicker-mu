@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         IdleRPGMU Auto Clicker (v7.1 RU/EU)
-// @name:ru      IdleRPGMU Автокликер (v7.1 RU/EU)
+// @name         IdleRPGMU Auto Clicker (v7.4 RU/EU)
+// @name:ru      IdleRPGMU Автокликер (v7.4 RU/EU)
 // @namespace    http://tampermonkey.net/
-// @version      7.1
+// @version      7.4
 // @description  Reset + Map + Auto Event + Modal close + Mining (6h) with RU/EU localization
 // @description:ru  Сброс + Карта + Авто-ивенты + Закрытие окон + Mining (6ч) с выбором языка
 // @author       You
@@ -134,10 +134,14 @@
     const SELECTOR_EVENT_MODAL = '.modal-backdrop section[role="dialog"]';
     const SELECTOR_TICKETS = '.MiningResourceSummary-module__W8RoJG__miningResource';
 
+    // Список ресурсов для автоматического цикла.
     const MINING_RESOURCES = [
         { tone: 'chaos', label: 'Chaos' },
         { tone: 'blood', label: 'BC' },
-        { tone: 'devil', label: 'DS' }
+        { tone: 'devil', label: 'DS' },
+        { tone: 'creation', label: 'Creation' },
+        { tone: 'life', label: 'Life' },
+        { tone: 'boss', label: 'Boss' } // <-- ДОБАВЛЕНО
     ];
 
     const MODAL_CONTAINERS = [
@@ -179,7 +183,6 @@
     // 4. ПАНЕЛЬ / PANEL
     // ==========================================
     function createUI() {
-        // Удаляем старую, если есть
         const existing = document.getElementById('idle-auto-panel');
         if (existing) existing.remove();
 
@@ -245,7 +248,6 @@
             boxShadow: '0 4px 6px rgba(0,0,0,0.3)', minWidth: '235px'
         });
 
-        // Куда вставлять — в body или в documentElement
         const host = document.body || document.documentElement;
         host.appendChild(panel);
 
@@ -283,7 +285,6 @@
         updateToggleUI();
     }
 
-    // Проверяем, что панель существует. Если нет — создаём заново.
     function ensurePanel() {
         if (!document.getElementById('idle-auto-panel')) {
             console.log('🔧 Panel not found, recreating...');
@@ -747,7 +748,17 @@
         if (miningCycleStep === 4) {
             const nextRes = MINING_RESOURCES[miningIndex];
             const resBtn = document.querySelector(`button[data-tone="${nextRes.tone}"]`);
-            if (resBtn && !resBtn.disabled) {
+            
+            // Пропускаем заблокированные ресурсы
+            if (resBtn && resBtn.disabled) {
+                console.log(`⛏️ Ресурс ${nextRes.label} заблокирован, пропускаем.`);
+                miningIndex = (miningIndex + 1) % MINING_RESOURCES.length;
+                localStorage.setItem('idleRPGMU_mining_index', miningIndex);
+                updateMiningUI(MINING_RESOURCES[miningIndex].label, t('choice'), '...');
+                return;
+            }
+
+            if (resBtn) {
                 resBtn.click();
                 updateMiningUI(nextRes.label, t('choice'), '...');
                 miningCycleStep = 5;
@@ -792,7 +803,6 @@
     let mapRefreshCounter = 0;
 
     function mainLoop() {
-        // Восстанавливаем панель, если её нет
         ensurePanel();
 
         if (!isEnabled) {
@@ -810,20 +820,17 @@
             mapRefreshCounter = 0;
         }
 
-        // 1. Events
         const eventResult = tryHandleEvent();
         if (eventResult) {
             updateStatusUI(level, eventResult);
             return;
         }
 
-        // 2. Close modals
         if (isModalCloseEnabled && closeAnyModal()) {
             updateStatusUI(level, t('closeModal'));
             return;
         }
 
-        // 3. Reset
         const resetBtn = document.querySelector(SELECTOR_RESET);
         if (resetBtn && !resetBtn.disabled) {
             if (Date.now() - lastResetTime > RESET_COOLDOWN) {
@@ -835,7 +842,6 @@
             }
         }
 
-        // 4. Map
         if (stage !== t('reset') && stage !== t('resetCd')) {
             const selectedMap = getSelectedMap();
             const mapBtn = document.querySelector(`button.destination-map[aria-label^="${selectedMap},"]`);
@@ -850,15 +856,12 @@
         }
 
         updateStatusUI(level, stage);
-
-        // 5. Mining
         miningTick();
     }
 
     // ==========================================
     // 11. ЗАПУСК / START (Firefox-friendly)
     // ==========================================
-
     function waitForBody(callback) {
         if (document.body) {
             callback();
@@ -896,7 +899,7 @@
             }
         });
 
-        console.log('🚀 AutoClicker v7.1 started. Lang:', currentLang);
+        console.log('🚀 AutoClicker v7.4 started. Lang:', currentLang);
         console.log('   Auto:', isEnabled, '| Mining:', isMiningEnabled,
                     '| Modal:', isModalCloseEnabled, '| Event:', isEventAutoEnabled);
     }
