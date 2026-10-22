@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         IdleRPGMU Auto Clicker (v7.9 RU/EU)
-// @name:ru      IdleRPGMU Автокликер (v7.9 RU/EU)
+// @name         IdleRPGMU Auto Clicker (v8.0 RU/EU)
+// @name:ru      IdleRPGMU Автокликер (v8.0 RU/EU)
 // @namespace    http://tampermonkey.net/
-// @version      7.9
-// @description  Reset + Map + Event + Modal + Mining + Pet + Daily + Evolve (RU/EU)
-// @description:ru  Сброс + Карта + Ивенты + Окна + Mining + Питомец + Ежедневки + Эволюция
+// @version      8.0
+// @description  Reset + Map + Event + Modal + Mining + Pet (Auto-Open) + Daily + Evolve
+// @description:ru  Сброс + Карта + Ивенты + Окна + Mining + Питомец (Авто-открытие) + Ежедневки + Эволюция
 // @author       You
 // @match        https://idlerpgmu.com/game*
 // @grant        none
@@ -160,6 +160,10 @@
     const SELECTOR_PET_IDENTITY = '.Pets-module__wel0pa__identity span';
     const SELECTOR_PET_INCUBATION = '.Pets-module__wel0pa__incubationClock';
     const SELECTOR_PET_EVOLUTION = '.Pets-module__wel0pa__evolution';
+    
+    // Селекторы для авто-открытия питомца
+    const SELECTOR_PET_COMPANION = 'button.Pets-module__wel0pa__companion';
+    const SELECTOR_PET_PANEL = '.Pets-module__wel0pa__identity, .Pets-module__wel0pa__feedBalance';
 
     const MINING_RESOURCES = [
         { tone: 'chaos', label: 'Chaos' },
@@ -187,6 +191,7 @@
     const RESET_COOLDOWN = 5000;
     const MINING_CYCLE_MS = 6 * 60 * 60 * 1000;
     const MINING_SYNC_INTERVAL_MS = 30 * 60 * 1000;
+    const PET_CHECK_INTERVAL = 60000; // Проверка питомца раз в минуту
 
     // ==========================================
     // 3. СОСТОЯНИЕ / STATE
@@ -214,6 +219,10 @@
     
     let evolveFinishTime = parseInt(localStorage.getItem('idleRPGMU_evolve_finish') || '0', 10);
     let lastEvolveParse = 0;
+
+    // Управление панелью питомца
+    let petPanelAutoOpened = false;
+    let petPanelCooldown = 0;
 
     // ==========================================
     // 4. ПАНЕЛЬ / PANEL
@@ -379,44 +388,14 @@
         const t7 = document.getElementById('evolve-toggle-btn');
         const tl = document.getElementById('lang-toggle-btn');
         
-        if (t1) {
-            t1.textContent = isEnabled ? t('on') : t('off');
-            t1.style.background = isEnabled ? '#4CAF50' : '#f44336';
-            t1.style.color = 'white';
-        }
-        if (t2) {
-            t2.textContent = isMiningEnabled ? t('on') : t('off');
-            t2.style.background = isMiningEnabled ? '#03A9F4' : '#f44336';
-            t2.style.color = 'white';
-        }
-        if (t3) {
-            t3.textContent = isModalCloseEnabled ? t('on') : t('off');
-            t3.style.background = isModalCloseEnabled ? '#9C27B0' : '#f44336';
-            t3.style.color = 'white';
-        }
-        if (t4) {
-            t4.textContent = isEventAutoEnabled ? t('on') : t('off');
-            t4.style.background = isEventAutoEnabled ? '#FF9800' : '#f44336';
-            t4.style.color = 'white';
-        }
-        if (t5) {
-            t5.textContent = isPetFeedEnabled ? t('on') : t('off');
-            t5.style.background = isPetFeedEnabled ? '#E91E63' : '#f44336';
-            t5.style.color = 'white';
-        }
-        if (t6) {
-            t6.textContent = isDailyClaimEnabled ? t('on') : t('off');
-            t6.style.background = isDailyClaimEnabled ? '#FFC107' : '#f44336';
-            t6.style.color = 'white';
-        }
-        if (t7) {
-            t7.textContent = isEvolveEnabled ? t('on') : t('off');
-            t7.style.background = isEvolveEnabled ? '#9C27B0' : '#f44336';
-            t7.style.color = 'white';
-        }
-        if (tl) {
-            tl.textContent = currentLang.toUpperCase();
-        }
+        if (t1) { t1.textContent = isEnabled ? t('on') : t('off'); t1.style.background = isEnabled ? '#4CAF50' : '#f44336'; t1.style.color = 'white'; }
+        if (t2) { t2.textContent = isMiningEnabled ? t('on') : t('off'); t2.style.background = isMiningEnabled ? '#03A9F4' : '#f44336'; t2.style.color = 'white'; }
+        if (t3) { t3.textContent = isModalCloseEnabled ? t('on') : t('off'); t3.style.background = isModalCloseEnabled ? '#9C27B0' : '#f44336'; t3.style.color = 'white'; }
+        if (t4) { t4.textContent = isEventAutoEnabled ? t('on') : t('off'); t4.style.background = isEventAutoEnabled ? '#FF9800' : '#f44336'; t4.style.color = 'white'; }
+        if (t5) { t5.textContent = isPetFeedEnabled ? t('on') : t('off'); t5.style.background = isPetFeedEnabled ? '#E91E63' : '#f44336'; t5.style.color = 'white'; }
+        if (t6) { t6.textContent = isDailyClaimEnabled ? t('on') : t('off'); t6.style.background = isDailyClaimEnabled ? '#FFC107' : '#f44336'; t6.style.color = 'white'; }
+        if (t7) { t7.textContent = isEvolveEnabled ? t('on') : t('off'); t7.style.background = isEvolveEnabled ? '#9C27B0' : '#f44336'; t7.style.color = 'white'; }
+        if (tl) { tl.textContent = currentLang.toUpperCase(); }
     }
 
     // ==========================================
@@ -711,6 +690,8 @@
             try { conts = document.querySelectorAll(contSel); } catch(e) { continue; }
             for (const c of conts) {
                 if (c.closest('#idle-auto-panel')) continue;
+                // Игнорируем панель питомца, чтобы не закрыть её раньше времени
+                if (c.querySelector(SELECTOR_PET_PANEL)) continue;
                 if (!isVisible(c)) continue;
                 for (const btnSel of CLOSE_BUTTON_SELECTORS) {
                     let btn;
@@ -726,7 +707,6 @@
     // 9. ПИТОМЕЦ, ЭВОЛЮЦИЯ И ЕЖЕДНЕВКИ / PET, EVOLVE & DAILY
     // ==========================================
     function updatePetUI() {
-        // Обновление яблок
         const applesEl = document.getElementById('pet-apples');
         if (applesEl) {
             const balanceEl = document.querySelector(SELECTOR_PET_BALANCE);
@@ -748,7 +728,6 @@
             }
         }
 
-        // Обновление уровня и эволюции
         const lvlEl = document.getElementById('pet-lvl');
         const evoEl = document.getElementById('evolve-status');
         if (!lvlEl || !evoEl) return;
@@ -770,7 +749,7 @@
 
         const clockEl = document.querySelector(SELECTOR_PET_INCUBATION);
         if (clockEl) {
-            evoEl.textContent = clockEl.textContent; // например, 23:39:43
+            evoEl.textContent = clockEl.textContent;
             evoEl.style.color = '#FF9800';
         } else {
             const evoSection = document.querySelector(SELECTOR_PET_EVOLUTION);
@@ -845,7 +824,6 @@
         const evoSection = document.querySelector(SELECTOR_PET_EVOLUTION);
         const clockEl = document.querySelector(SELECTOR_PET_INCUBATION);
 
-        // 1. Синхронизация таймера инкубации
         if (clockEl) {
             const match = clockEl.textContent.match(/(\d{2}):(\d{2}):(\d{2})/);
             if (match) {
@@ -867,13 +845,11 @@
             }
         }
 
-        // 2. Клик по кнопке (если пришло время, или уровень 100, или таймер закончился)
         if (evoSection) {
             const btn = evoSection.querySelector('button');
             const timeReached = (evolveFinishTime > 0 && Date.now() >= evolveFinishTime);
 
             if (btn && !btn.disabled && isVisible(btn)) {
-                // Кликаем, если таймер истек, или если кнопка активна, но таймера на экране нет
                 if (timeReached || evolveFinishTime === 0 || !clockEl) {
                     btn.click();
                     evolveFinishTime = 0;
@@ -883,11 +859,9 @@
             }
         }
         
-        // 3. Если нет секции эволюции, проверяем уровень 100
         if (!evoSection) {
             const identityEl = document.querySelector(SELECTOR_PET_IDENTITY);
             if (identityEl && identityEl.textContent.includes('100 / 100')) {
-                // Ищем кнопку Evolve где-то рядом (на случай, если HTML немного другой)
                 const allButtons = document.querySelectorAll('.Pets-module__wel0pa__shell button, .Pets-module__wel0pa__identity button');
                 for (let btn of allButtons) {
                     const txt = (btn.textContent || '').toLowerCase();
@@ -911,7 +885,6 @@
         const b = claimSection.querySelector('b');
         const btn = claimSection.querySelector('button');
 
-        // 1. Синхронизация таймера
         if (b && b.textContent.includes('Next in')) {
             const match = b.textContent.match(/(\d{2}):(\d{2}):(\d{2})/);
             if (match) {
@@ -933,7 +906,6 @@
             }
         }
 
-        // 2. Клик
         const timeReached = (dailyFinishTime > 0 && Date.now() >= dailyFinishTime);
         
         if (btn && !btn.disabled && isVisible(btn)) {
@@ -1124,8 +1096,6 @@
 
     function mainLoop() {
         ensurePanel();
-        updatePetUI();
-        updateDailyUI();
 
         if (!isEnabled) {
             updateStatusUI(getLevel(), t('off'));
@@ -1142,32 +1112,71 @@
             mapRefreshCounter = 0;
         }
 
+        // 1. Закрытие модалок (кроме питомца)
+        if (isModalCloseEnabled && closeAnyModal()) {
+            updateStatusUI(level, t('closeModal'));
+            return;
+        }
+
+        // 2. Логика работы с питомцем (Авто-открытие и синхронизация)
+        const isPetPanelOpen = document.querySelector(SELECTOR_PET_PANEL);
+        
+        if (isPetPanelOpen) {
+            // Если панель открыта, обновляем данные и выполняем действия
+            updatePetUI();
+            updateDailyUI();
+            
+            const evolveResult = evolveTick();
+            if (evolveResult) updateStatusUI(level, evolveResult);
+            
+            const dailyResult = dailyTick();
+            if (dailyResult) updateStatusUI(level, dailyResult);
+            
+            const petResult = petTick();
+            if (petResult) updateStatusUI(level, petResult);
+            
+            // Если мы её открыли авто-кликом, пытаемся закрыть, чтобы не мешала
+            if (petPanelAutoOpened) {
+                // Ищем кнопку закрытия (крестик)
+                const closeBtn = document.querySelector('.Pets-module__wel0pa__close') || document.querySelector('button[aria-label="Close"]');
+                if (closeBtn && isVisible(closeBtn)) {
+                    closeBtn.click();
+                    petPanelAutoOpened = false;
+                    petPanelCooldown = Date.now(); // Кулдаун на следующее открытие
+                } else {
+                    // Если крестика нет, пробуем кликнуть по иконке питомца (toggle)
+                    const compBtn = document.querySelector(SELECTOR_PET_COMPANION);
+                    if (compBtn && isVisible(compBtn)) {
+                        compBtn.click();
+                        petPanelAutoOpened = false;
+                        petPanelCooldown = Date.now();
+                    }
+                }
+            }
+        } else {
+            // Панель закрыта. Проверяем, не пора ли её открыть
+            if (isPetFeedEnabled || isDailyClaimEnabled || isEvolveEnabled) {
+                if (Date.now() - petPanelCooldown > PET_CHECK_INTERVAL) {
+                    const compBtn = document.querySelector(SELECTOR_PET_COMPANION);
+                    if (compBtn && !compBtn.disabled && isVisible(compBtn)) {
+                        compBtn.click();
+                        petPanelAutoOpened = true;
+                        petPanelCooldown = Date.now();
+                        updateStatusUI(level, '🐾 OPEN PET');
+                        return; // Ждем следующего тика для рендера
+                    }
+                }
+            }
+        }
+
+        // 3. Обработка ивентов
         const eventResult = tryHandleEvent();
         if (eventResult) {
             updateStatusUI(level, eventResult);
             return;
         }
 
-        if (isModalCloseEnabled && closeAnyModal()) {
-            updateStatusUI(level, t('closeModal'));
-            return;
-        }
-
-        const dailyResult = dailyTick();
-        if (dailyResult) {
-            updateStatusUI(level, dailyResult);
-        }
-
-        const evolveResult = evolveTick();
-        if (evolveResult) {
-            updateStatusUI(level, evolveResult);
-        }
-
-        const petResult = petTick();
-        if (petResult) {
-            updateStatusUI(level, petResult);
-        }
-
+        // 4. Reset
         const resetBtn = document.querySelector(SELECTOR_RESET);
         if (resetBtn && !resetBtn.disabled) {
             if (Date.now() - lastResetTime > RESET_COOLDOWN) {
@@ -1179,6 +1188,7 @@
             }
         }
 
+        // 5. Карта
         if (stage !== t('reset') && stage !== t('resetCd')) {
             const selectedMap = getSelectedMap();
             const mapBtn = document.querySelector(`button.destination-map[aria-label^="${selectedMap},"]`);
@@ -1236,10 +1246,7 @@
             }
         });
 
-        console.log('🚀 AutoClicker v7.9 started. Lang:', currentLang);
-        console.log('   Auto:', isEnabled, '| Mining:', isMiningEnabled,
-                    '| Modal:', isModalCloseEnabled, '| Event:', isEventAutoEnabled,
-                    '| Pet:', isPetFeedEnabled, '| Evolve:', isEvolveEnabled, '| Daily:', isDailyClaimEnabled);
+        console.log('🚀 AutoClicker v8.0 started. Lang:', currentLang);
     }
 
     waitForBody(startScript);
