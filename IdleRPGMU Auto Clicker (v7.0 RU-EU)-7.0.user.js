@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         IdleRPGMU Auto Clicker (v8.2 RU/EU)
-// @name:ru      IdleRPGMU Автокликер (v8.2 RU/EU)
+// @name         IdleRPGMU Auto Clicker (v8.3 RU/EU)
+// @name:ru      IdleRPGMU Автокликер (v8.3 RU/EU)
 // @namespace    http://tampermonkey.net/
-// @version      8.2
-// @description  Reset + Map + Event + Modal + Mining + Pet (Auto-Open 30m) + Daily + Evolve
-// @description:ru  Сброс + Карта + Ивенты + Окна + Mining + Питомец (Авто-открытие 30м) + Ежедневки + Эволюция
+// @version      8.3
+// @description  Reset + Map + Event + Modal + Mining + Pet (Auto-Open 30m + Cache) + Daily + Evolve
+// @description:ru  Сброс + Карта + Ивенты + Окна + Mining + Питомец (Авто-открытие 30м + Кэш) + Ежедневки + Эволюция
 // @author       You
 // @match        https://idlerpgmu.com/game*
 // @grant        none
@@ -131,6 +131,10 @@
     let evolveFinishTime = parseInt(localStorage.getItem('idleRPGMU_evolve_finish') || '0', 10);
     let lastEvolveParse = 0;
     
+    // Кэш питомца
+    let cachedPetLevel = localStorage.getItem('idleRPGMU_pet_lvl') || '?';
+    let cachedPetApples = localStorage.getItem('idleRPGMU_pet_apples') || '... / ...';
+
     let petPanelAutoOpened = false;
     let petPanelCooldown = 0;
     let petOpenTime = 0;
@@ -176,14 +180,14 @@
                     <strong style="font-size:12px;">${t('petFeed')}</strong>
                     <button id="pet-toggle-btn" style="padding:3px 8px;cursor:pointer;border:none;border-radius:4px;font-weight:bold;font-size:11px;">ON</button>
                 </div>
-                <div style="font-size:11px;margin-bottom:6px;">${t('apples')}: <span id="pet-apples" style="color:#9E9E9E;font-weight:bold;">... / ...</span></div>
+                <div style="font-size:11px;margin-bottom:6px;">${t('apples')}: <span id="pet-apples" style="color:#9E9E9E;font-weight:bold;">${cachedPetApples}</span></div>
 
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                     <strong style="font-size:12px;">${t('petEvolve')}</strong>
                     <button id="evolve-toggle-btn" style="padding:3px 8px;cursor:pointer;border:none;border-radius:4px;font-weight:bold;font-size:11px;">ON</button>
                 </div>
                 <div style="font-size:11px;margin-bottom:6px;display:flex;justify-content:space-between;">
-                    <span>${t('petLevel')}: <span id="pet-lvl" style="color:#03A9F4;font-weight:bold;">?</span></span>
+                    <span>${t('petLevel')}: <span id="pet-lvl" style="color:#03A9F4;font-weight:bold;">${cachedPetLevel}</span></span>
                     <span id="evolve-status" style="color:#9E9E9E;font-weight:bold;">...</span>
                 </div>
 
@@ -238,11 +242,7 @@
     function updateToggleUI() {
         const updateBtn = (id, isOn, colorOn, colorOff) => {
             const btn = document.getElementById(id);
-            if (btn) {
-                btn.textContent = isOn ? t('on') : t('off');
-                btn.style.background = isOn ? colorOn : colorOff;
-                btn.style.color = 'white';
-            }
+            if (btn) { btn.textContent = isOn ? t('on') : t('off'); btn.style.background = isOn ? colorOn : colorOff; btn.style.color = 'white'; }
         };
         updateBtn('auto-toggle-btn', isEnabled, '#4CAF50', '#f44336');
         updateBtn('mining-toggle-btn', isMiningEnabled, '#03A9F4', '#f44336');
@@ -467,33 +467,52 @@
     // ==========================================
     function updatePetUI() {
         const applesEl = document.getElementById('pet-apples');
-        if (applesEl) {
+        const lvlEl = document.getElementById('pet-lvl'), evoEl = document.getElementById('evolve-status');
+        
+        const isPanelOpen = document.querySelector(SELECTOR_PET_PANEL);
+
+        // Если панель открыта — читаем из DOM и обновляем кэш
+        if (isPanelOpen) {
             const balanceEl = document.querySelector(SELECTOR_PET_BALANCE);
-            if (balanceEl) {
+            if (balanceEl && applesEl) {
                 const spans = balanceEl.querySelectorAll('span b');
                 if (spans.length >= 2) {
                     const costMatch = spans[0].textContent.match(/\d+/), availMatch = spans[1].textContent.match(/\d+/);
                     if (costMatch && availMatch) {
                         const cost = parseInt(costMatch[0], 10), avail = parseInt(availMatch[0], 10);
-                        applesEl.textContent = `${avail} / ${cost}`;
+                        cachedPetApples = `${avail} / ${cost}`;
+                        localStorage.setItem('idleRPGMU_pet_apples', cachedPetApples);
+                        applesEl.textContent = cachedPetApples;
                         applesEl.style.color = avail >= cost ? '#4CAF50' : '#FF9800';
                     }
                 }
-            } else {
-                applesEl.textContent = '... / ...'; applesEl.style.color = '#9E9E9E';
             }
+
+            const identityEl = document.querySelector(SELECTOR_PET_IDENTITY);
+            if (identityEl && lvlEl) {
+                const match = identityEl.textContent.match(/(\d+)\s*\/\s*100/);
+                if (match) {
+                    cachedPetLevel = match[1];
+                    localStorage.setItem('idleRPGMU_pet_lvl', cachedPetLevel);
+                    lvlEl.textContent = cachedPetLevel;
+                }
+            }
+        } else {
+            // Если панель закрыта — восстанавливаем из кэша
+            if (applesEl) { applesEl.textContent = cachedPetApples; applesEl.style.color = '#9E9E9E'; }
+            if (lvlEl) { lvlEl.textContent = cachedPetLevel; }
         }
 
-        const lvlEl = document.getElementById('pet-lvl'), evoEl = document.getElementById('evolve-status');
         if (!lvlEl || !evoEl) return;
 
-        const identityEl = document.querySelector(SELECTOR_PET_IDENTITY);
-        if (identityEl) { const match = identityEl.textContent.match(/(\d+)\s*\/\s*100/); lvlEl.textContent = match ? match[1] : '?'; } else lvlEl.textContent = '?';
-
-        if (!isEvolveEnabled) { evoEl.textContent = t('off'); evoEl.style.color = '#9E9E9E'; return; }
+        if (!isEvolveEnabled) {
+            evoEl.textContent = t('off'); evoEl.style.color = '#9E9E9E'; return;
+        }
 
         const clockEl = document.querySelector(SELECTOR_PET_INCUBATION);
-        if (clockEl) { evoEl.textContent = clockEl.textContent; evoEl.style.color = '#FF9800'; } else {
+        if (clockEl) {
+            evoEl.textContent = clockEl.textContent; evoEl.style.color = '#FF9800';
+        } else {
             const evoSection = document.querySelector(SELECTOR_PET_EVOLUTION);
             if (evoSection) {
                 const btn = evoSection.querySelector('button');
@@ -507,18 +526,13 @@
         const el = document.getElementById('daily-left');
         if (!el) return;
 
-        if (!isDailyClaimEnabled) {
-            el.textContent = t('off'); el.style.color = '#9E9E9E'; return;
-        }
+        if (!isDailyClaimEnabled) { el.textContent = t('off'); el.style.color = '#9E9E9E'; return; }
 
         const claimSection = document.querySelector(SELECTOR_DAILY_SECTION);
         
-        // Если панель открыта, читаем из DOM
         if (claimSection) {
             const btn = claimSection.querySelector('button');
-            if (btn && !btn.disabled) {
-                el.textContent = t('dailyReady'); el.style.color = '#4CAF50'; return;
-            }
+            if (btn && !btn.disabled) { el.textContent = t('dailyReady'); el.style.color = '#4CAF50'; return; }
             const b = claimSection.querySelector('b');
             if (b) {
                 const match = b.textContent.match(/(\d{2}:\d{2}:\d{2})/);
@@ -526,17 +540,12 @@
             }
         }
 
-        // Если панель ЗАКРЫТА, считаем из памяти
+        // Таймер из памяти (если закрыто)
         if (dailyFinishTime > 0) {
             const left = dailyFinishTime - Date.now();
-            if (left > 0) {
-                el.textContent = formatClock(left); el.style.color = '#FF9800';
-            } else {
-                el.textContent = t('dailyReady'); el.style.color = '#4CAF50';
-            }
-        } else {
-            el.textContent = '...'; el.style.color = '#9E9E9E';
-        }
+            if (left > 0) { el.textContent = formatClock(left); el.style.color = '#FF9800'; }
+            else { el.textContent = t('dailyReady'); el.style.color = '#4CAF50'; }
+        } else { el.textContent = '...'; el.style.color = '#9E9E9E'; }
     }
 
     function petTick() {
@@ -593,18 +602,10 @@
 
     function dailyTick() {
         if (!isDailyClaimEnabled) return null;
-
-        // Если панель закрыта, синхронизируем из памяти
-        if (!document.querySelector(SELECTOR_DAILY_SECTION)) {
-            if (dailyFinishTime > 0 && Date.now() >= dailyFinishTime) {
-                // Время вышло, но панель закрыта. Скрипт просто ждет планового открытия панели (раз в 30 минут).
-            }
-            return null;
-        }
-
         const claimSection = document.querySelector(SELECTOR_DAILY_SECTION);
-        const b = claimSection.querySelector('b'), btn = claimSection.querySelector('button');
+        if (!claimSection) return null;
 
+        const b = claimSection.querySelector('b'), btn = claimSection.querySelector('button');
         if (b && b.textContent.includes('Next in')) {
             const match = b.textContent.match(/(\d{2}):(\d{2}):(\d{2})/);
             if (match) {
@@ -622,7 +623,6 @@
         }
 
         const timeReached = (dailyFinishTime > 0 && Date.now() >= dailyFinishTime);
-        
         if (btn && !btn.disabled && isVisible(btn)) {
             if (timeReached || dailyFinishTime === 0 || !b) {
                 btn.click(); dailyFinishTime = 0; localStorage.setItem('idleRPGMU_daily_finish', '0');
@@ -753,7 +753,7 @@
         mapRefreshCounter++;
         if (mapRefreshCounter >= 30) { refreshMapSelect(); mapRefreshCounter = 0; }
 
-        // 1. Закрытие модалок (кроме питомца)
+        // 1. Закрытие модалок
         if (isModalCloseEnabled && closeAnyModal()) { updateStatusUI(level, t('closeModal')); return; }
 
         // 2. Питомец
@@ -764,7 +764,7 @@
             const dailyResult = dailyTick(); if (dailyResult) updateStatusUI(level, dailyResult);
             const petResult = petTick(); if (petResult) updateStatusUI(level, petResult);
             
-            if (petPanelAutoOpened && Date.now() - petOpenTime > 2000) { // Ждём 2 сек после открытия
+            if (petPanelAutoOpened && Date.now() - petOpenTime > 2000) {
                 const closeBtn = document.querySelector(SELECTOR_PET_CLOSE);
                 if (closeBtn && isVisible(closeBtn)) {
                     closeBtn.click(); petPanelAutoOpened = false; petPanelCooldown = Date.now();
@@ -819,7 +819,7 @@
         setTimeout(refreshMapSelect, 500); setTimeout(refreshMapSelect, 2000); setTimeout(refreshMapSelect, 5000);
         setInterval(mainLoop, CLICK_INTERVAL);
         document.addEventListener('visibilitychange', () => { if (!document.hidden) { ensurePanel(); mainLoop(); } });
-        console.log('🚀 AutoClicker v8.2 started. Lang:', currentLang);
+        console.log('🚀 AutoClicker v8.3 started. Lang:', currentLang);
     }
 
     waitForBody(startScript);
