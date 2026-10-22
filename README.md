@@ -147,46 +147,6 @@ Open console (`F12`) and run:
 location.reload();
 ```
 
-### ⚠️ Disclaimer
-
-Automation in online games may violate the Terms of Service. Use at your own risk.
-
----
-
-## 📜 Changelog / История
-
-### v7.0
-- 🌐 RU/EU localization + language selector in panel
-
-### v6.2
-- 🎫 Auto event reward claim (Claim EXP → Continue → Return to Hunting)
-
-### v6.1
-- 🎫 Auto event registration with ticket check
-
-### v6.0
-- 🎫 Initial auto events support
-
-### v5.1
-- 🚪 Modal close toggle
-
-### v5.0
-- ⛏️ Mining sync with in-game timer
-
-### v4.0
-- ⛏️ Auto Mining cycle (6h)
-
-### v3.0
-- ⛏️ Initial Mining support
-
-### v2.0
-- 🎛️ On/Off panel with state persistence
-
-### v1.0
-- 🔄 Auto Reset + Map switch
-
----
-
 ## 📄 License / Лицензия
 
 MIT — use freely, contribute back if you improve it.
