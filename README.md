@@ -1,85 +1,10 @@
 # 🤖 IdleRPGMU Auto Clicker
 
-<img width="240" height="335" alt="Screenshot 2026-09-18 at 2 54 21 PM" src="https://github.com/user-attachments/assets/3dc96afb-7c30-44aa-98ad-45c632649a73" />
+<img width="249" height="485" alt="image" src="https://github.com/user-attachments/assets/355647dd-eb84-46cf-a886-630e3b9f7aa8" />
 
 
 > Userscript for **MU Idle RPG** — automation of Reset, Map switching, Event registration & rewards, Modal closing, and Mining cycles.
 
-[🇷🇺 Русский](#-русский) · [🇬🇧 English](#-english)
-
----
-
-## 🇷🇺 Русский
-
-### 📖 Что это
-
-Юзерскрипт для Tampermonkey, который автоматизирует рутинные действия в браузерной idle-RPG **MU Idle RPG** (`idlerpgmu.com/game`).
-
-### ✨ Возможности
-
-| Функция | Описание |
-|---|---|
-| 🔄 **Авто-Reset** | Сбрасывает персонажа при достижении нужного уровня |
-| 🗺️ **Выбор карты** | Автоматически переходит на выбранную вами карту |
-| 🎫 **Авто-ивенты** | Регистрация на Blood Castle / Devil Square / Chaos Castle, сбор награды (Claim EXP → Continue → Return to Hunting) |
-| 🚪 **Закрытие окон** | Автоматически закрывает всплывающие модальные окна |
-| ⛏️ **Mining (6ч)** | Циклично запускает Chaos → BC → DS, синхронизируется с игровым таймером |
-| 🌐 **RU / EN** | Переключение языка прямо в панели |
-
-### 📦 Установка
-
-1. Установите расширение **[Tampermonkey](https://www.tampermonkey.net/)** для вашего браузера.
-2. Откройте [ссылку на raw-файл скрипта](https://github.com/HiddenNekoStudio/AutoClicker-mu/raw/refs/heads/main/IdleRPGMU%20Auto%20Clicker%20(v7.0%20RU-EU)-7.0.user.js).
-3. Tampermonkey предложит установку — подтвердите.
-4. Откройте `https://idlerpgmu.com/game` — скрипт запустится автоматически.
-
-### 🎛️ Панель управления
-
-```
-┌───────────────────────────────────────┐
-│ 🤖 Автокликер             RU | ON     │
-│ Уровень: 137                          │
-│ Этап: MAP: Icarus ✓                   │
-│ ───────────────────────────────────── │
-│ 🗺️ Карта [Icarus ▼]                   │
-│ ───────────────────────────────────── │
-│ 🎫 Авто-ивенты                 ON     │
-│ 🚪 Закрытие окон               ON     │
-│ ───────────────────────────────────── │
-│ ⛏️ Mining (6ч)                 ON     │
-│ Ресурс: Chaos                         │
-│ Осталось: 5ч 42м                      │
-│ Статус: ⏳ (синк 3м назад)             │
-└───────────────────────────────────────┘
-```
-
-### ⚙️ Настройки
-
-Все параметры находятся в начале скрипта в блоке **«2. НАСТРОЙКИ»**:
-
-| Параметр | По умолчанию | Описание |
-|---|---|---|
-| `CLICK_INTERVAL` | `1000` мс | Частота главного цикла |
-| `RESET_COOLDOWN` | `5000` мс | Защита от двойного Reset |
-| `MINING_CYCLE_MS` | `6ч` | Длительность сессии Mining |
-| `MINING_SYNC_INTERVAL_MS` | `30 мин` | Период синка с игровым таймером |
-
-### 🧹 Полный сброс
-
-Откройте консоль (`F12`) и выполните:
-
-```javascript
-['idleRPGMU_auto_enabled','idleRPGMU_mining_enabled','idleRPGMU_modal_enabled',
- 'idleRPGMU_event_enabled','idleRPGMU_mining_index','idleRPGMU_mining_started',
- 'idleRPGMU_mining_sync','idleRPGMU_map','idleRPGMU_lang'].forEach(k => localStorage.removeItem(k));
-location.reload();
-```
-
-### ⚠️ Дисклеймер
-
-Автоматизация в онлайн-играх может нарушать пользовательское соглашение. Используйте на свой страх и риск.
-
----
 
 ## 🇬🇧 English
 
@@ -91,12 +16,16 @@ A Tampermonkey userscript that automates routine actions in the browser-based id
 
 | Feature | Description |
 |---|---|
-| 🔄 **Auto-Reset** | Resets character when reaching the required level |
-| 🗺️ **Map selector** | Automatically travels to the chosen map |
-| 🎫 **Auto Events** | Registers for Blood Castle / Devil Square / Chaos Castle, claims rewards (Claim EXP → Continue → Return to Hunting) |
-| 🚪 **Close Modals** | Automatically closes popup modals |
-| ⛏️ **Mining (6h)** | Cycles through Chaos → BC → DS, syncs with in-game timer |
-| 🌐 **RU / EN** | Language toggle right in the panel |
+|🔄 Auto-Reset| Resets character when reaching the required level|
+|🗺️ Map selector|Automatically travels to the chosen map|
+|🎫 Auto Events|	Registers for events and claims rewards (Claim EXP → Continue → Return to Hunting)|
+|🚪 Close Modals|	Automatically closes popup modals|
+|⛏️ Mining (6h)|	Cycles through Chaos → BC → DS → Creation → Life → Boss, syncs with timer|
+|🐾 Auto Feed Pet|	Automatically feeds your pet. Shows current apple balance (e.g., 12 / 17)|
+|🧬 Pet Evolution|	Tracks pet level 100, starts evolution, and syncs the incubation timer|
+|🎁 Daily Claim|	Syncs the daily reward timer and claims it exactly when available|
+|👁️ Smart Cache|	Remembers pet level, apples, and timers, displaying them even when the panel is closed|
+|🌐 RU / EN	Language| toggle right in the panel|
 
 ### 📦 Installation
 
@@ -117,6 +46,12 @@ A Tampermonkey userscript that automates routine actions in the browser-based id
 │ ───────────────────────────────────── │
 │ 🎫 Auto Events                 ON     │
 │ 🚪 Close Modals                ON     │
+│ 🐾 Feed Pet                    ON     │
+│ 🍎 Apples: 12 / 17                    │
+│ 🧬 Pet Evolution               ON     │
+│ Level: 74 | Status: 23:39:43          │
+│ 🎁 Daily Claim                 ON     │
+│ Time left: 22:44:45                   │
 │ ───────────────────────────────────── │
 │ ⛏️ Mining (6h)                 ON     │
 │ Resource: Chaos                       │
@@ -135,6 +70,7 @@ All settings are in the **"2. НАСТРОЙКИ / SETTINGS"** block at the top:
 | `RESET_COOLDOWN` | `5000` ms | Anti double-reset guard |
 | `MINING_CYCLE_MS` | `6h` | Mining session duration |
 | `MINING_SYNC_INTERVAL_MS` | `30 min` | Sync period with in-game timer |
+| `PET_CHECK_INTERVAL`	|`30 min`|	How often the script opens the Pet panel |
 
 ### 🧹 Full Reset
 
@@ -142,8 +78,10 @@ Open console (`F12`) and run:
 
 ```javascript
 ['idleRPGMU_auto_enabled','idleRPGMU_mining_enabled','idleRPGMU_modal_enabled',
- 'idleRPGMU_event_enabled','idleRPGMU_mining_index','idleRPGMU_mining_started',
- 'idleRPGMU_mining_sync','idleRPGMU_map','idleRPGMU_lang'].forEach(k => localStorage.removeItem(k));
+ 'idleRPGMU_event_enabled','idleRPGMU_pet_feed_enabled','idleRPGMU_daily_enabled',
+ 'idleRPGMU_evolve_enabled','idleRPGMU_mining_index','idleRPGMU_mining_started',
+ 'idleRPGMU_mining_sync','idleRPGMU_map','idleRPGMU_lang','idleRPGMU_daily_finish',
+ 'idleRPGMU_evolve_finish','idleRPGMU_pet_lvl','idleRPGMU_pet_apples'].forEach(k => localStorage.removeItem(k));
 location.reload();
 ```
 
