@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         IdleRPGMU Auto Clicker (v7.4 RU/EU)
-// @name:ru      IdleRPGMU Автокликер (v7.4 RU/EU)
+// @name         IdleRPGMU Auto Clicker (v7.9 RU/EU)
+// @name:ru      IdleRPGMU Автокликер (v7.9 RU/EU)
 // @namespace    http://tampermonkey.net/
-// @version      7.4
-// @description  Reset + Map + Auto Event + Modal close + Mining (6h) with RU/EU localization
-// @description:ru  Сброс + Карта + Авто-ивенты + Закрытие окон + Mining (6ч) с выбором языка
+// @version      7.9
+// @description  Reset + Map + Event + Modal + Mining + Pet + Daily + Evolve (RU/EU)
+// @description:ru  Сброс + Карта + Ивенты + Окна + Mining + Питомец + Ежедневки + Эволюция
 // @author       You
 // @match        https://idlerpgmu.com/game*
 // @grant        none
@@ -26,6 +26,13 @@
             loading: 'загрузка...',
             autoEvents: '🎫 Авто-ивенты',
             modalClose: '🚪 Закрытие окон',
+            petFeed: '🐾 Кормление',
+            petEvolve: '🧬 Эволюция питомца',
+            petLevel: 'Уровень питомца',
+            apples: '🍎 Яблоки',
+            dailyClaim: '🎁 Ежедневная награда',
+            dailyLeft: 'До награды',
+            dailyReady: 'ГОТОВО',
             mining: '⛏️ Mining (6ч)',
             resource: 'Ресурс',
             left: 'Осталось',
@@ -43,10 +50,13 @@
             claim: 'ЗАБРАТЬ',
             continueEvt: 'ПРОДОЛЖИТЬ',
             hunt: 'ОХОТА',
-            skip: 'ПРОПУСК',
             later: 'позже',
             waitBtn: 'ждём кнопку',
             expApplied: 'EXP начислен',
+            feeding: 'КОРМЛЕНИЕ',
+            dailyClaiming: 'НАГРАДА',
+            evolving: 'ЭВОЛЮЦИЯ',
+            maxLevel: 'МАКС. УРОВЕНЬ',
             toMining: '→ Mining',
             onMining: 'на Mining',
             collect: 'СБОР',
@@ -67,6 +77,13 @@
             loading: 'loading...',
             autoEvents: '🎫 Auto Events',
             modalClose: '🚪 Close Modals',
+            petFeed: '🐾 Feed Pet',
+            petEvolve: '🧬 Pet Evolution',
+            petLevel: 'Pet Level',
+            apples: '🍎 Apples',
+            dailyClaim: '🎁 Daily Claim',
+            dailyLeft: 'Time left',
+            dailyReady: 'READY',
             mining: '⛏️ Mining (6h)',
             resource: 'Resource',
             left: 'Left',
@@ -84,10 +101,13 @@
             claim: 'CLAIM',
             continueEvt: 'CONTINUE',
             hunt: 'HUNT',
-            skip: 'SKIP',
             later: 'later',
             waitBtn: 'waiting button',
             expApplied: 'EXP applied',
+            feeding: 'FEEDING',
+            dailyClaiming: 'DAILY',
+            evolving: 'EVOLVING',
+            maxLevel: 'MAX LEVEL',
             toMining: '→ Mining',
             onMining: 'on Mining',
             collect: 'COLLECT',
@@ -133,15 +153,21 @@
     const SELECTOR_MINING_TIMER = '.Mining-module__RSe5Oa__timer';
     const SELECTOR_EVENT_MODAL = '.modal-backdrop section[role="dialog"]';
     const SELECTOR_TICKETS = '.MiningResourceSummary-module__W8RoJG__miningResource';
+    
+    const SELECTOR_PET_FEED = 'button.Pets-module__wel0pa__feed';
+    const SELECTOR_PET_BALANCE = '.Pets-module__wel0pa__feedBalance';
+    const SELECTOR_DAILY_SECTION = '.Pets-module__wel0pa__claimDaily';
+    const SELECTOR_PET_IDENTITY = '.Pets-module__wel0pa__identity span';
+    const SELECTOR_PET_INCUBATION = '.Pets-module__wel0pa__incubationClock';
+    const SELECTOR_PET_EVOLUTION = '.Pets-module__wel0pa__evolution';
 
-    // Список ресурсов для автоматического цикла.
     const MINING_RESOURCES = [
         { tone: 'chaos', label: 'Chaos' },
         { tone: 'blood', label: 'BC' },
         { tone: 'devil', label: 'DS' },
         { tone: 'creation', label: 'Creation' },
         { tone: 'life', label: 'Life' },
-        { tone: 'boss', label: 'Boss' } // <-- ДОБАВЛЕНО
+        { tone: 'boss', label: 'Boss' }
     ];
 
     const MODAL_CONTAINERS = [
@@ -169,6 +195,9 @@
     let isMiningEnabled     = localStorage.getItem('idleRPGMU_mining_enabled') !== 'false';
     let isModalCloseEnabled = localStorage.getItem('idleRPGMU_modal_enabled')  !== 'false';
     let isEventAutoEnabled  = localStorage.getItem('idleRPGMU_event_enabled')  !== 'false';
+    let isPetFeedEnabled    = localStorage.getItem('idleRPGMU_pet_feed_enabled') !== 'false';
+    let isDailyClaimEnabled = localStorage.getItem('idleRPGMU_daily_enabled')  !== 'false';
+    let isEvolveEnabled     = localStorage.getItem('idleRPGMU_evolve_enabled') !== 'false';
     let lastResetTime = 0;
 
     let miningIndex = parseInt(localStorage.getItem('idleRPGMU_mining_index') || '0', 10);
@@ -178,6 +207,13 @@
     let miningMode = null;
 
     let eventClaimStep = 0;
+    
+    // Синхронизация таймеров
+    let dailyFinishTime = parseInt(localStorage.getItem('idleRPGMU_daily_finish') || '0', 10);
+    let lastDailyParse = 0;
+    
+    let evolveFinishTime = parseInt(localStorage.getItem('idleRPGMU_evolve_finish') || '0', 10);
+    let lastEvolveParse = 0;
 
     // ==========================================
     // 4. ПАНЕЛЬ / PANEL
@@ -215,9 +251,34 @@
                     <strong style="font-size:12px;">${t('autoEvents')}</strong>
                     <button id="event-toggle-btn" style="padding:3px 8px;cursor:pointer;border:none;border-radius:4px;font-weight:bold;font-size:11px;">ON</button>
                 </div>
-                <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                     <strong style="font-size:12px;">${t('modalClose')}</strong>
                     <button id="modal-toggle-btn" style="padding:3px 8px;cursor:pointer;border:none;border-radius:4px;font-weight:bold;font-size:11px;">ON</button>
+                </div>
+                
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <strong style="font-size:12px;">${t('petFeed')}</strong>
+                    <button id="pet-toggle-btn" style="padding:3px 8px;cursor:pointer;border:none;border-radius:4px;font-weight:bold;font-size:11px;">ON</button>
+                </div>
+                <div style="font-size:11px;margin-bottom:6px;">
+                    ${t('apples')}: <span id="pet-apples" style="color:#9E9E9E;font-weight:bold;">... / ...</span>
+                </div>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <strong style="font-size:12px;">${t('petEvolve')}</strong>
+                    <button id="evolve-toggle-btn" style="padding:3px 8px;cursor:pointer;border:none;border-radius:4px;font-weight:bold;font-size:11px;">ON</button>
+                </div>
+                <div style="font-size:11px;margin-bottom:6px;display:flex;justify-content:space-between;">
+                    <span>${t('petLevel')}: <span id="pet-lvl" style="color:#03A9F4;font-weight:bold;">?</span></span>
+                    <span id="evolve-status" style="color:#9E9E9E;font-weight:bold;">...</span>
+                </div>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <strong style="font-size:12px;">${t('dailyClaim')}</strong>
+                    <button id="daily-toggle-btn" style="padding:3px 8px;cursor:pointer;border:none;border-radius:4px;font-weight:bold;font-size:11px;">ON</button>
+                </div>
+                <div style="font-size:11px;margin-top:3px;">
+                    ${t('dailyLeft')}: <span id="daily-left" style="color:#9E9E9E;font-weight:bold;">...</span>
                 </div>
             </div>
 
@@ -245,7 +306,7 @@
             zIndex: '2147483646',
             pointerEvents: 'auto',
             fontFamily: 'Arial,sans-serif',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.3)', minWidth: '235px'
+            boxShadow: '0 4px 6px rgba(0,0,0,0.3)', minWidth: '245px'
         });
 
         const host = document.body || document.documentElement;
@@ -270,6 +331,21 @@
         document.getElementById('event-toggle-btn').addEventListener('click', () => {
             isEventAutoEnabled = !isEventAutoEnabled;
             localStorage.setItem('idleRPGMU_event_enabled', isEventAutoEnabled);
+            updateToggleUI();
+        });
+        document.getElementById('pet-toggle-btn').addEventListener('click', () => {
+            isPetFeedEnabled = !isPetFeedEnabled;
+            localStorage.setItem('idleRPGMU_pet_feed_enabled', isPetFeedEnabled);
+            updateToggleUI();
+        });
+        document.getElementById('daily-toggle-btn').addEventListener('click', () => {
+            isDailyClaimEnabled = !isDailyClaimEnabled;
+            localStorage.setItem('idleRPGMU_daily_enabled', isDailyClaimEnabled);
+            updateToggleUI();
+        });
+        document.getElementById('evolve-toggle-btn').addEventListener('click', () => {
+            isEvolveEnabled = !isEvolveEnabled;
+            localStorage.setItem('idleRPGMU_evolve_enabled', isEvolveEnabled);
             updateToggleUI();
         });
         document.getElementById('map-select').addEventListener('change', (e) => {
@@ -298,7 +374,11 @@
         const t2 = document.getElementById('mining-toggle-btn');
         const t3 = document.getElementById('modal-toggle-btn');
         const t4 = document.getElementById('event-toggle-btn');
+        const t5 = document.getElementById('pet-toggle-btn');
+        const t6 = document.getElementById('daily-toggle-btn');
+        const t7 = document.getElementById('evolve-toggle-btn');
         const tl = document.getElementById('lang-toggle-btn');
+        
         if (t1) {
             t1.textContent = isEnabled ? t('on') : t('off');
             t1.style.background = isEnabled ? '#4CAF50' : '#f44336';
@@ -318,6 +398,21 @@
             t4.textContent = isEventAutoEnabled ? t('on') : t('off');
             t4.style.background = isEventAutoEnabled ? '#FF9800' : '#f44336';
             t4.style.color = 'white';
+        }
+        if (t5) {
+            t5.textContent = isPetFeedEnabled ? t('on') : t('off');
+            t5.style.background = isPetFeedEnabled ? '#E91E63' : '#f44336';
+            t5.style.color = 'white';
+        }
+        if (t6) {
+            t6.textContent = isDailyClaimEnabled ? t('on') : t('off');
+            t6.style.background = isDailyClaimEnabled ? '#FFC107' : '#f44336';
+            t6.style.color = 'white';
+        }
+        if (t7) {
+            t7.textContent = isEvolveEnabled ? t('on') : t('off');
+            t7.style.background = isEvolveEnabled ? '#9C27B0' : '#f44336';
+            t7.style.color = 'white';
         }
         if (tl) {
             tl.textContent = currentLang.toUpperCase();
@@ -628,7 +723,233 @@
     }
 
     // ==========================================
-    // 9. MINING — СИНК + ЦИКЛ / SYNC + CYCLE
+    // 9. ПИТОМЕЦ, ЭВОЛЮЦИЯ И ЕЖЕДНЕВКИ / PET, EVOLVE & DAILY
+    // ==========================================
+    function updatePetUI() {
+        // Обновление яблок
+        const applesEl = document.getElementById('pet-apples');
+        if (applesEl) {
+            const balanceEl = document.querySelector(SELECTOR_PET_BALANCE);
+            if (balanceEl) {
+                const spans = balanceEl.querySelectorAll('span b');
+                if (spans.length >= 2) {
+                    const costMatch = spans[0].textContent.match(/\d+/);
+                    const availMatch = spans[1].textContent.match(/\d+/);
+                    if (costMatch && availMatch) {
+                        const cost = parseInt(costMatch[0], 10);
+                        const avail = parseInt(availMatch[0], 10);
+                        applesEl.textContent = `${avail} / ${cost}`;
+                        applesEl.style.color = avail >= cost ? '#4CAF50' : '#FF9800';
+                    }
+                }
+            } else {
+                applesEl.textContent = '... / ...';
+                applesEl.style.color = '#9E9E9E';
+            }
+        }
+
+        // Обновление уровня и эволюции
+        const lvlEl = document.getElementById('pet-lvl');
+        const evoEl = document.getElementById('evolve-status');
+        if (!lvlEl || !evoEl) return;
+
+        const identityEl = document.querySelector(SELECTOR_PET_IDENTITY);
+        if (identityEl) {
+            const match = identityEl.textContent.match(/(\d+)\s*\/\s*100/);
+            if (match) lvlEl.textContent = match[1];
+            else lvlEl.textContent = '?';
+        } else {
+            lvlEl.textContent = '?';
+        }
+
+        if (!isEvolveEnabled) {
+            evoEl.textContent = t('off');
+            evoEl.style.color = '#9E9E9E';
+            return;
+        }
+
+        const clockEl = document.querySelector(SELECTOR_PET_INCUBATION);
+        if (clockEl) {
+            evoEl.textContent = clockEl.textContent; // например, 23:39:43
+            evoEl.style.color = '#FF9800';
+        } else {
+            const evoSection = document.querySelector(SELECTOR_PET_EVOLUTION);
+            if (evoSection) {
+                const btn = evoSection.querySelector('button');
+                if (btn && !btn.disabled) {
+                    evoEl.textContent = t('ready');
+                    evoEl.style.color = '#4CAF50';
+                } else {
+                    evoEl.textContent = t('waitBtn');
+                    evoEl.style.color = '#9E9E9E';
+                }
+            } else {
+                evoEl.textContent = '—';
+                evoEl.style.color = '#9E9E9E';
+            }
+        }
+    }
+
+    function updateDailyUI() {
+        const el = document.getElementById('daily-left');
+        if (!el) return;
+
+        if (!isDailyClaimEnabled) {
+            el.textContent = t('off');
+            el.style.color = '#9E9E9E';
+            return;
+        }
+
+        const claimSection = document.querySelector(SELECTOR_DAILY_SECTION);
+        if (!claimSection) {
+            el.textContent = '...';
+            el.style.color = '#9E9E9E';
+            return;
+        }
+
+        const btn = claimSection.querySelector('button');
+        if (btn && !btn.disabled) {
+            el.textContent = t('dailyReady');
+            el.style.color = '#4CAF50';
+            return;
+        }
+
+        const b = claimSection.querySelector('b');
+        if (b) {
+            const match = b.textContent.match(/(\d{2}:\d{2}:\d{2})/);
+            if (match) {
+                el.textContent = match[1];
+                el.style.color = '#FF9800';
+                return;
+            }
+        }
+        
+        el.textContent = '...';
+        el.style.color = '#9E9E9E';
+    }
+
+    function petTick() {
+        if (!isPetFeedEnabled) return null;
+
+        const feedBtn = document.querySelector(SELECTOR_PET_FEED);
+        if (feedBtn && !feedBtn.disabled && isVisible(feedBtn)) {
+            feedBtn.click();
+            return t('feeding');
+        }
+        return null;
+    }
+
+    function evolveTick() {
+        if (!isEvolveEnabled) return null;
+
+        const evoSection = document.querySelector(SELECTOR_PET_EVOLUTION);
+        const clockEl = document.querySelector(SELECTOR_PET_INCUBATION);
+
+        // 1. Синхронизация таймера инкубации
+        if (clockEl) {
+            const match = clockEl.textContent.match(/(\d{2}):(\d{2}):(\d{2})/);
+            if (match) {
+                const h = parseInt(match[1], 10);
+                const m = parseInt(match[2], 10);
+                const s = parseInt(match[3], 10);
+                const remainingMs = (h * 3600 + m * 60 + s) * 1000;
+
+                if (remainingMs > 1000) {
+                    if (Date.now() - lastEvolveParse > 10000 || evolveFinishTime === 0) {
+                        evolveFinishTime = Date.now() + remainingMs;
+                        localStorage.setItem('idleRPGMU_evolve_finish', evolveFinishTime.toString());
+                        lastEvolveParse = Date.now();
+                    }
+                } else {
+                    evolveFinishTime = 0;
+                    localStorage.setItem('idleRPGMU_evolve_finish', '0');
+                }
+            }
+        }
+
+        // 2. Клик по кнопке (если пришло время, или уровень 100, или таймер закончился)
+        if (evoSection) {
+            const btn = evoSection.querySelector('button');
+            const timeReached = (evolveFinishTime > 0 && Date.now() >= evolveFinishTime);
+
+            if (btn && !btn.disabled && isVisible(btn)) {
+                // Кликаем, если таймер истек, или если кнопка активна, но таймера на экране нет
+                if (timeReached || evolveFinishTime === 0 || !clockEl) {
+                    btn.click();
+                    evolveFinishTime = 0;
+                    localStorage.setItem('idleRPGMU_evolve_finish', '0');
+                    return t('evolving');
+                }
+            }
+        }
+        
+        // 3. Если нет секции эволюции, проверяем уровень 100
+        if (!evoSection) {
+            const identityEl = document.querySelector(SELECTOR_PET_IDENTITY);
+            if (identityEl && identityEl.textContent.includes('100 / 100')) {
+                // Ищем кнопку Evolve где-то рядом (на случай, если HTML немного другой)
+                const allButtons = document.querySelectorAll('.Pets-module__wel0pa__shell button, .Pets-module__wel0pa__identity button');
+                for (let btn of allButtons) {
+                    const txt = (btn.textContent || '').toLowerCase();
+                    if ((txt.includes('evolve') || txt.includes('ascend')) && !btn.disabled) {
+                        btn.click();
+                        return t('evolving');
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    function dailyTick() {
+        if (!isDailyClaimEnabled) return null;
+
+        const claimSection = document.querySelector(SELECTOR_DAILY_SECTION);
+        if (!claimSection) return null;
+
+        const b = claimSection.querySelector('b');
+        const btn = claimSection.querySelector('button');
+
+        // 1. Синхронизация таймера
+        if (b && b.textContent.includes('Next in')) {
+            const match = b.textContent.match(/(\d{2}):(\d{2}):(\d{2})/);
+            if (match) {
+                const h = parseInt(match[1], 10);
+                const m = parseInt(match[2], 10);
+                const s = parseInt(match[3], 10);
+                const remainingMs = (h * 3600 + m * 60 + s) * 1000;
+
+                if (remainingMs > 1000) {
+                    if (Date.now() - lastDailyParse > 10000 || dailyFinishTime === 0) {
+                        dailyFinishTime = Date.now() + remainingMs;
+                        localStorage.setItem('idleRPGMU_daily_finish', dailyFinishTime.toString());
+                        lastDailyParse = Date.now();
+                    }
+                } else {
+                    dailyFinishTime = 0;
+                    localStorage.setItem('idleRPGMU_daily_finish', '0');
+                }
+            }
+        }
+
+        // 2. Клик
+        const timeReached = (dailyFinishTime > 0 && Date.now() >= dailyFinishTime);
+        
+        if (btn && !btn.disabled && isVisible(btn)) {
+            if (timeReached || dailyFinishTime === 0 || !b) {
+                btn.click();
+                dailyFinishTime = 0;
+                localStorage.setItem('idleRPGMU_daily_finish', '0');
+                return t('dailyClaiming');
+            }
+        }
+        
+        return null;
+    }
+
+    // ==========================================
+    // 10. MINING — СИНК + ЦИКЛ / SYNC + CYCLE
     // ==========================================
     function miningTick() {
         if (!isMiningEnabled) {
@@ -749,7 +1070,6 @@
             const nextRes = MINING_RESOURCES[miningIndex];
             const resBtn = document.querySelector(`button[data-tone="${nextRes.tone}"]`);
             
-            // Пропускаем заблокированные ресурсы
             if (resBtn && resBtn.disabled) {
                 console.log(`⛏️ Ресурс ${nextRes.label} заблокирован, пропускаем.`);
                 miningIndex = (miningIndex + 1) % MINING_RESOURCES.length;
@@ -798,12 +1118,14 @@
     }
 
     // ==========================================
-    // 10. ГЛАВНЫЙ ЦИКЛ / MAIN LOOP
+    // 11. ГЛАВНЫЙ ЦИКЛ / MAIN LOOP
     // ==========================================
     let mapRefreshCounter = 0;
 
     function mainLoop() {
         ensurePanel();
+        updatePetUI();
+        updateDailyUI();
 
         if (!isEnabled) {
             updateStatusUI(getLevel(), t('off'));
@@ -829,6 +1151,21 @@
         if (isModalCloseEnabled && closeAnyModal()) {
             updateStatusUI(level, t('closeModal'));
             return;
+        }
+
+        const dailyResult = dailyTick();
+        if (dailyResult) {
+            updateStatusUI(level, dailyResult);
+        }
+
+        const evolveResult = evolveTick();
+        if (evolveResult) {
+            updateStatusUI(level, evolveResult);
+        }
+
+        const petResult = petTick();
+        if (petResult) {
+            updateStatusUI(level, petResult);
         }
 
         const resetBtn = document.querySelector(SELECTOR_RESET);
@@ -860,7 +1197,7 @@
     }
 
     // ==========================================
-    // 11. ЗАПУСК / START (Firefox-friendly)
+    // 12. ЗАПУСК / START (Firefox-friendly)
     // ==========================================
     function waitForBody(callback) {
         if (document.body) {
@@ -899,9 +1236,10 @@
             }
         });
 
-        console.log('🚀 AutoClicker v7.4 started. Lang:', currentLang);
+        console.log('🚀 AutoClicker v7.9 started. Lang:', currentLang);
         console.log('   Auto:', isEnabled, '| Mining:', isMiningEnabled,
-                    '| Modal:', isModalCloseEnabled, '| Event:', isEventAutoEnabled);
+                    '| Modal:', isModalCloseEnabled, '| Event:', isEventAutoEnabled,
+                    '| Pet:', isPetFeedEnabled, '| Evolve:', isEvolveEnabled, '| Daily:', isDailyClaimEnabled);
     }
 
     waitForBody(startScript);
